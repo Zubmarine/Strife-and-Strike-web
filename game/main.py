@@ -83,7 +83,7 @@ class GameState:
         self.logs = []
         self.id = None
         self.deck = deque()
-        self.players = {}
+        self.players: Dict[str, Character] = {}
         self.current_turn = None
         self._register_core_events()
         
@@ -124,8 +124,25 @@ class GameState:
 
 
 class CombatSystem:
-    def __init__(self, game_state):
+    def __init__(self, game_state: GameState):
         self.state = game_state
+    
+    async def send_error(self, player_id: str, message: str):
+        """发送错误消息"""
+        error_event = {
+            'player': player_id,
+            'message': message
+        }
+        await self.state.dispatcher.fire_event(GameEventType.MP_MODIFIED, error_event)
+    
+    async def broadcast_state(self):
+        """广播游戏状态"""
+        state_event = {
+            'players': {pid: player.__dict__ for pid, player in self.state.players.items()},
+            'current_turn': self.state.current_turn
+        }
+        await self.state.dispatcher.fire_event(GameEventType.MP_MODIFIED, state_event)
+        await self.state.log(f"Game state updated: {state_event}")
         
     async def execute_attack(self, attacker_id: str, defender_id: str):
         """执行攻击流程"""
@@ -183,7 +200,7 @@ class CombatSystem:
             GameEventType.DICE_ROLL, roll_event)
         
         # 应用最终修改结果
-        traits = getattr(self.state.players[player_id], 'traits', None)
+        traits = self.state.players[player_id].traits
         if traits and isinstance(traits, list):
             for trait in traits:
                 if hasattr(trait, 'modify_dice_max') and callable(trait.modify_dice_max):
@@ -206,20 +223,70 @@ class CombatSystem:
 
         if handler:
             await handler(event)
+    
+    async def handle_draw_card(self, player_id: str, num_cards: int = 1):
+        """处理抽牌事件"""
+        player_state = self.state.players[player_id]
+        if len(player_state.hand) + num_cards > 5:
+            return await self.send_error(player_id, "Hand limit reached")
 
-    async def handle_play_card(self, event):
-        player_state = self.state.players[event.player_id]
+        drawn_cards = []
+        for _ in range(num_cards):
+            card = self.state.deck.popleft()
+            player_state.hand.append(card)
+            drawn_cards.append(card)
+
+        await self.broadcast_state()
+        await self.state.log(f"{player_id} drew cards: {drawn_cards}")
+        await self.state.dispatcher.fire_event(GameEventType.DRAW_CARD, {'card': drawn_cards})
+
+    async def handle_play_card(self, player_id: str, event: GameEventType):
+        """处理出牌事件"""
+        player_state = self.state.players[player_id]
         card = event.data['card']
         
         if card not in player_state.hand:
-            return await self.send_error(event.player_id, "Invalid card")
-        
-        if self.state.current_turn != event.player_id:
-            return await self.send_error(event.player_id, "Not your turn")
-        
+            return await self.send_error(player_id, "Invalid card")
+
+        if self.state.current_turn != player_id:
+            return await self.send_error(player_id, "Not your turn")
+
         # 执行出牌逻辑
         player_state.hand.remove(card)
         await self.broadcast_state()
+        await self.state.log(f"{player_id} played {card}")
+        await self.state.dispatcher.fire_event(GameEventType.PLAY_CARD, event.data)
+    
+    async def _damage_apply(self, defender_id: str, damage: int):
+        """应用伤害"""
+        defender = self.state.players[defender_id]
+        defender.hp -= damage
+        if defender.hp <= 0:
+            defender.is_alive = False
+            await self.state.log(f"{defender_id} has been defeated!")
+            await self.state.dispatcher.fire_event(GameEventType.DAMAGE_APPLY, {'defender': defender_id})
+        else:
+            await self.state.log(f"{defender_id} took {damage} damage, remaining HP: {defender.hp}")
+    
+    async def _heal_apply(self, target_id: str, heal_amount: int):
+        """应用治疗"""
+        target = self.state.players[target_id]
+        target.hp += heal_amount
+        if target.hp > target.hp_max:
+            target.hp = target.hp_max
+        await self.state.log(f"{target_id} healed for {heal_amount}, current HP: {target.hp}")
+        await self.state.dispatcher.fire_event(GameEventType.HEAL_APPLY, {'target': target_id})
+    
+    async def handle_end_turn(self, player_id: str):
+        """处理回合结束事件"""
+        if self.state.current_turn != player_id:
+            return await self.send_error(player_id, "Not your turn")
+        
+        # 结束当前回合
+        self.state.current_turn = None
+        await self.broadcast_state()
+        await self.state.log(f"{player_id} ended their turn")
+        await self.state.dispatcher.fire_event(GameEventType.TURN_END, {'player': player_id})
 
 
 class GameServer:
