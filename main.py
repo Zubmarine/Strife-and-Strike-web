@@ -9,28 +9,25 @@ The main progress of SnS Game, including server, game precess, etc.
 """
 
 import asyncio
-from game import GameServer
-
 from aiohttp import web
+from game.server import GameServer
 
 
 async def main():
     server = GameServer()
-    server.game_state.initialize_deck()
-    
-    # 创建aiohttp应用
     app = web.Application()
-    app.add_routes([web.get('/ws', server.websocket_handler)])
+    app.router.add_get('/ws', server.websocket_handler)
     
-    # 同时运行Web服务器和游戏循环
     runner = web.AppRunner(app)
     await runner.setup()
     site = web.TCPSite(runner, 'localhost', 8080)
+    await site.start()
     
-    await asyncio.gather(
-        site.start(),
-        server.main_loop()
-    )
+    try:
+        while True:
+            await asyncio.sleep(3600)
+    finally:
+        await runner.cleanup()
 
 if __name__ == "__main__":
     asyncio.run(main())

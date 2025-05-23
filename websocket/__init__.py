@@ -6,6 +6,6 @@
 None
 """
 
-from web import main
+from websocket import main
 
 WSGameServer = main.WSGameServer
