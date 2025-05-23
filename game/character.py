@@ -82,4 +82,4 @@ class Character():
 
 
 class CharacterList(Enum):
-    yinzhu = ["茵竹", {Module.HP, MPModule.HUMUS_HUMAN}, {"SEFL_ENCOURAGING"}, [], ]
+    yinzhu = ["茵竹", {Module.HP, MPModule.HUMUS_HUMAN}, {"SEFL_ENCOURAGMENT"}, [], ]

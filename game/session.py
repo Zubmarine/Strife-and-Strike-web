@@ -18,12 +18,3 @@ class GameSession:
         self.lock = asyncio.Lock()
         self.is_active = True
         self.logger = logging.getLogger(f"Session_{self.session_id}")
-    
-    async def process_event(self, event: GameEvent) -> None:
-        """处理游戏事件"""
-        async with self.lock:
-            try:
-                await self.event_queue.put(event)
-            except Exception as e:
-                self.logger.error(f"事件入队失败: {e}")
-                event.set_error("Event queuing failed")

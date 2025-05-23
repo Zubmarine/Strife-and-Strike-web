@@ -24,5 +24,5 @@ class SelfEncouragement(Trait):
                     'player': player,
                     'hp': player.hp_max * 0.8 - player.hp
                 })
-            await self.game_state.log(f"{player.name}的自勉触发，恢复5点生命值")
+            await self.game_state.log(f"{player.name}的自勉触发，生命值恢复至{player.hp_max * 0.8}")
         return event

@@ -63,6 +63,11 @@ class GameEvent:
     result: Dict[str, Any] = field(default_factory=dict)
     error: Optional[str] = None
 
+    def set_error(self, error: str):
+        """设置错误信息"""
+        self.error = error
+        self.cancel = True
+
 
 class EventDispatcher:
     def __init__(self):

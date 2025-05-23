@@ -9,5 +9,3 @@ class Card:
     description: str
     effects: List[Callable]
     
-    async def play(self, game_state, player_id):
-        pass

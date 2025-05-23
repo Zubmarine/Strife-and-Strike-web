@@ -10,7 +10,7 @@ Module for main game progress
 """
 
 __version__ = '0.1.0'
-__author__ = 'Your Name'
+__author__ = 'Zubmarine & Icecube'
 
 # 导出核心组件
 from .events import GameEvent, GameEventType, EventDispatcher
