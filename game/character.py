@@ -8,6 +8,7 @@
 None
 """
 
+from dataclasses import dataclass
 from enum import Enum
 from typing import Set, List, Dict, Union
 
@@ -47,6 +48,7 @@ class MPModule(Enum):
     AGENT_ = [-1, 0, 5]
 
 
+@dataclass
 class Character():
     def __init__(self, player: str, module_type: str):
         self.player: str = player
@@ -80,4 +82,4 @@ class Character():
 
 
 class CharacterList(Enum):
-    yinzhu = ["茵竹", "HP", {"SEFL_ENCOURAGING"}, [], ]
+    yinzhu = ["茵竹", {Module.HP, MPModule.HUMUS_HUMAN}, {"SEFL_ENCOURAGING"}, [], ]

@@ -11,9 +11,11 @@ None
 import asyncio
 import random
 import logging
+
 from collections import deque
 from enum import Enum, auto
 from typing import Tuple, Dict, List, Callable, Any
+from dataclasses import dataclass
 
 from character import Character
 
@@ -43,19 +45,31 @@ class GameEventType(Enum):
     MP_MODIFIED = auto()
 
 
+@dataclass
+class GameEvent:
+    def __init__(self, event_type: GameEventType, data: Dict[str, Any]):
+        self.event_type: GameEventType = event_type
+        self.data: Dict[str, Any] = data
+        self.cancel: bool = False  # 用于取消事件的标志
+        self.result: Dict[str, Any] = {}
+        self.error: str = ""  # 错误信息
+
+
 class EventDispatcher:
     def __init__(self):
-        self.listeners: Dict[GameEventType, List[Tuple[Callable, int]]] = {}
+        self.listeners: Dict[GameEventType, List[Tuple[Callable[[GameEvent], dict], int]]] = {}
         self.logger = logging.getLogger(__name__)
 
-    async def fire_event(self, event_type: GameEventType, data: dict) -> dict:
-        if event_type not in self.listeners:
+    async def fire_event(self, event: GameEvent, data: dict) -> dict:
+        """触发事件并处理返回结果"""
+        if event not in self.listeners:
             return data
             
         try:
-            for callback, _ in self.listeners[event_type]:
+            event = GameEvent(type=event, data=data)
+            for callback, _ in self.listeners[event]:
                 try:
-                    result = await callback(data)
+                    result = await callback(event)
                     if isinstance(result, dict):
                         data.update(result)
                 except Exception as e:
@@ -65,12 +79,14 @@ class EventDispatcher:
             self.logger.error(f"事件分发失败: {e}", exc_info=True)
             return data
 
-    def add_listener(self, event_type: GameEventType, 
-                    callback: Callable, priority: int = 0) -> None:
-        if event_type not in self.listeners:
-            self.listeners[event_type] = []
-        self.listeners[event_type].append((callback, priority))
-        self.listeners[event_type].sort(key=lambda x: x[1], reverse=True)
+    def add_listener(self, event: GameEventType, 
+                    callback: Callable[[GameEvent], dict], 
+                    priority: int = 0) -> None:
+        """添加事件监听器"""
+        if event not in self.listeners:
+            self.listeners[event] = []
+        self.listeners[event].append((callback, priority))
+        self.listeners[event].sort(key=lambda x: x[1], reverse=True)
 
 
 class GameState:
@@ -123,6 +139,33 @@ class GameState:
         pass
 
 
+
+@dataclass
+class Trait:
+    def __init__(self, name: str, game_state: GameState = None):
+        self.name = name
+        self.game_state = game_state
+
+
+class SelfEncouragement(Trait):
+    def __init__(self, game_state: GameState = None):
+        super().__init__("SelfEncouragement", game_state=game_state)
+        game_state.dispatcher.add_listener(
+            GameEventType.DAMAGE_APPLY, self.self_encouragement, priority=50)
+
+    async def self_encouragement(self, event: GameEvent):
+        """自勉特质的事件处理"""
+        player = self.game_state.players.get(event.data.get("player"))
+        if player.hp <= player.hp_max * 0.5 and player.hp > 0:
+            await self.game_state.dispatcher.fire_event(
+                GameEventType.HEAL_APPLY, {
+                    'player': player,
+                    'hp': player.hp_max * 0.8 - player.hp
+                })
+            await self.game_state.log(f"{player.name}的自勉触发，恢复5点生命值")
+        return event
+
+
 class CombatSystem:
     def __init__(self, game_state: GameState):
         self.state = game_state
@@ -151,7 +194,7 @@ class CombatSystem:
             
         roll_result = await self._perform_attack_roll(attacker_id)
         damage = await self._calculate_damage(attacker_id, defender_id, roll_result)
-        await self._apply_damage(defender_id, damage)
+        await self._damage_apply(defender_id, damage)
         
     async def _validate_attack(self, attacker_id: str, defender_id: str) -> bool:
         pre_event = {
