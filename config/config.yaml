@@ -1,0 +1,16 @@
+logging:
+  level:
+    root: INFO
+    game: DEBUG
+
+  handlers:
+    console:
+      class: logging.StreamHandler
+      formatter: simple
+    file:
+      class: logging.FileHandler
+      filename: game.log
+      formatter: detailed
+  patterns:
+    console: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    file: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"

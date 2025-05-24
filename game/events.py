@@ -22,7 +22,9 @@ class GameEventType(Enum):
     PLAYER_LEAVE = auto()
     PLAYER_READY = auto()
     PLAYER_UNREADY = auto()
-    
+    SKILL_APPEND = auto()
+    SKILL_REMOVE = auto()
+
     # 角色相关事件
     CHARACTER_SELECT = auto()
     CHARACTER_UNSELECT = auto()
@@ -53,15 +55,20 @@ class GameEventType(Enum):
     # 资源相关事件
     MP_MODIFIED = auto()
 
+    SKILL_USE = auto()
+    SKILL_CANCEL = auto()
+    SKILl_CD_MODIFIED = auto()
+
+
 @dataclass
 class GameEvent:
-    event_id: str = field(default_factory=lambda: str(uuid.uuid4()))
-    event_time: datetime = field(default_factory=datetime.now)
-    event_type: GameEventType
-    data: Dict[str, Any] = field(default_factory=dict)
-    cancel: bool = False
-    result: Dict[str, Any] = field(default_factory=dict)
-    error: Optional[str] = None
+    event_id: str = field(default_factory=lambda: str(uuid.uuid4()))    # 事件id
+    event_time: datetime = field(default_factory=datetime.now)          # 事件时间
+    event_type: GameEventType                                   # 事件类型
+    data: Dict[str, Any] = field(default_factory=dict)          # 事件数据
+    cancel: bool = False                                    # 是否取消事件
+    result: Dict[str, Any] = field(default_factory=dict)    # 事件结果
+    error: Optional[str] = None                             # 错误信息  
 
     def set_error(self, error: str):
         """设置错误信息"""

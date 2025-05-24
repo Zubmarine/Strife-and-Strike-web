@@ -11,7 +11,7 @@ None
 from dataclasses import dataclass
 from enum import Enum
 from typing import Set, List, Dict, Union
-
+from .traits import TraitManager
 
 
 class Module(Enum):
@@ -50,8 +50,8 @@ class MPModule(Enum):
 
 @dataclass
 class Character():
-    def __init__(self, player: str, module_type: str):
-        self.player: str = player
+    def __init__(self, module_type: str):
+        self.team: int = 0              # 队伍编号
 
         self.name: str = ""             # 角色名
         self.traits: Set[str] = {}      #
@@ -62,17 +62,26 @@ class Character():
         self.attack: int = Module[module_type].value[1]
         self.defense: int = Module[module_type].value[2]
 
-        self.mp_max: int = 0        #
-        self.mp: int = 0            #
-        self.mp_restore: int = 0    #
-        self.mp_restore_cd: int = 0 #
+        self.mp_max: int = 0            #
+        self.mp: int = 0                #
+        self.mp_restore: int = 0        #
+        self.mp_restore_cd: int = 0     #
         
-        self.hand: List[str] = []   #
-        self.skills: Set[str] = {}  #
+        self.hand: List[str] = []       #
+        self.skill_max: int = 2         #
+        self.skills: Set[str] = {}      #
         self.cooldowns: Dict[str, int] = {}                     #
         self.statuses: Dict[Dict[str, Union[int, bool]]] = {}   #
 
-    
+    async def module_apply(self, module: Union[Module, MPModule]):
+        if isinstance(module, Module):
+            self.hp_max += module.value[0]
+            self.attack += module.value[1]
+            self.defense += module.value[2]
+        elif isinstance(module, MPModule):
+            self.mp_max += module.value[0]
+            self.mp_restore += module.value[1]
+            self.mp_restore_cd += module.value[2]
 
     async def trait(self, *args, **kwargs) -> None:
         pass
@@ -81,5 +90,16 @@ class Character():
         pass
 
 
-class CharacterList(Enum):
-    yinzhu = ["茵竹", {Module.HP, MPModule.HUMUS_HUMAN}, {"SEFL_ENCOURAGMENT"}, [], ]
+class YinZhu(Character):
+    def __init__(self):
+        self.name = "茵竹"
+        self.module_apply(Module.HP)
+        self.module_apply(MPModule.HUMUS_HUMAN)
+        self.traits = {TraitManager.SELF_ENCOURAGEMENT}
+
+class NekaoHewish(Character):
+    def __init__(self):
+        self.name = "妮卡欧·希纬什"
+        self.module_apply(Module.BALANCE)
+        self.module_apply(MPModule.HUMUS_HUMAN)
+        self.traits = {TraitManager.TIRELESS_OBSERVER, TraitManager.CLEAR_PATH_TO_COME}
